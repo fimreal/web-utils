@@ -1,9 +1,5 @@
 FROM openresty/openresty:alpine
 
-# Copy supervisord bin command
-COPY --from=ochinchina/supervisord:latest /usr/local/bin/supervisord /usr/local/bin/supervisord
-CMD ["/usr/local/bin/supervisord"]
-
 # Motify timezone as needed
 ENV TZ="Asia/Shanghai"
 
@@ -20,12 +16,16 @@ RUN apk add --no-cache php-fpm php-pdo_mysql php-tokenizer \
     php-intl php-bcmath php-dom php-mbstring php-xmlreader \
     php-pecl-memcache php-pecl-redis php-ftp \
     curl openssl tzdata &&\
-    sed -i 's/expose_php = On/expose_php = Off/g;s/post_max_size = 8M/post_max_size = 0/g;s/upload_max_filesize = 2M/upload_max_filesize = 100M/g' /etc/php83/php.ini 
+    sed -i 's/expose_php = On/expose_php = Off/g;s/post_max_size = 8M/post_max_size = 0/g;s/upload_max_filesize = 2M/upload_max_filesize = 100M/g' /etc/php83/php.ini
+
+# copy god 
+COPY --from=epurs/god:latest /god /god
+CMD ["/god", "-l", "0.0.0.0:7788", "-c", "nginx:openresty -g 'daemon off;'", "-c", "/usr/sbin/php-fpm83 --nodaemonize"]
+HEALTHCHECK --interval=5s --timeout=2s --retries=3 CMD curl -f http://localhost:7788/health || exit 1
 
 VOLUME ["/wwwroot"]
 
-ADD ./nginx.conf /etc/nginx/conf.d/nginx.conf
-ADD ./supervisord.conf /etc/supervisord.conf
+ADD ./nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
